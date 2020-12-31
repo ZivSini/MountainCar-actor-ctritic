@@ -41,7 +41,7 @@ def epsilon_greedy(epsilon, state, theta):
 
 
 def soft_max(theta, state):
-    action_values = [state@np.exp(theta[:, action]) for action in range(number_of_actions)]
+    action_values = [state @ np.exp(theta[:, action]) for action in range(number_of_actions)]
     action_prob = action_values / np.sum(action_values)
     rand = random()
     if rand < action_prob[0]:
@@ -73,7 +73,7 @@ def simulate(w, env):
 
 
 def getMean(theta, state):
-    action_values = [state@np.exp(theta[:, action] ) for action in range(number_of_actions)]
+    action_values = [state @ np.exp(theta[:, action]) for action in range(number_of_actions)]
     action_prob = action_values / np.sum(action_values)
     mean = action_prob @ action_values
     return mean
@@ -89,7 +89,7 @@ def learnActorCritic(theta):  # theta is policy approximation
     next_sample = 0
     epsilon = 1
     episode = 1
-    curr_reword = 0
+    curr_reward = 0
     timeSteps = 0
     while timeSteps < totalNumberOfSteps:
         # if next_sample < len(takeSample) and timeSteps >= takeSample[next_sample]:
@@ -99,6 +99,7 @@ def learnActorCritic(theta):  # theta is policy approximation
         p, v = env.reset()
         state = getState(p, v)
         while not done:
+            timeSteps += 1
             action = epsilon_greedy(epsilon, state, theta)
             (p, v), reward, done, _ = env.step(action)
             nextState = getState(p, v)
@@ -109,26 +110,31 @@ def learnActorCritic(theta):  # theta is policy approximation
             w += stepSizeValue * delta * state
             mean = getMean(theta, state)
             grad = state @ w.T - mean
-            theta[:,action] += stepSizePolicy * l * delta * grad
+            theta[:, action] += stepSizePolicy * l * delta * grad
             l *= gamma
             state = nextState
-            curr_reword += reward
+            curr_reward += reward
         if episode % 100 == 0 and episode > 0:
-            print('episode ', episode, 'score ', curr_reword, 'epsilon %.3f' % epsilon)
-            curr_reword = 0
+            print('episode ', episode, 'score ', curr_reward, 'epsilon %.3f' % epsilon)
+            curr_reward = 0
+            # render_simulation(theta)
         episode += 1
-        epsilon*=0.999
+        epsilon *= 0.999
+
+
+def render_simulation(theta):
+    (p, v) = env.reset()
+    env.render()
+    done = False
+    while not done:
+        (p, v), reward, done, info = env.step(epsilon_greedy(0, getState(p, v), theta))
+        env.render()
+    env.reset()
+    env.close()
 
 
 if __name__ == '__main__':
     with open('aprox_policy.npy', 'rb') as f:
         theta = np.load(f)
-        (p, v) = env.reset()
-        env.render()
-        done = False
-        while not done:
-            (p, v), reward, done, info = env.step(epsilon_greedy(0,getState(p, v),theta))
-            env.render()
-        env.reset()
-        env.close()
+        # render_simulation(theta)
     learnActorCritic(theta);
